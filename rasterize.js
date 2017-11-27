@@ -538,8 +538,8 @@ function setupShaders() {
             vec3 specular = uSpecular*uLightSpecular*highlight; // specular term
             
             // combine to output color
-            vec3 colorOut = ambient + diffuse + specular; // no specular yet
-            gl_FragColor = vec4(1.0, 2.0, 1.0, 1.0); 
+            // vec3 colorOut = ambient + diffuse + specular; // no specular yet
+            gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0); 
         }
     `;
     
