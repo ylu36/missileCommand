@@ -3,15 +3,6 @@
 /* assignment specific globals */
 const INPUT_TRIANGLES_URL = "https://ncsucgclass.github.io/prog3/triangles.json"; // triangles file loc
 const INPUT_ELLIPSOIDS_URL = "https://ncsucgclass.github.io/prog3/ellipsoids.json"; // ellipsoids file loc
-var defaultEye = vec3.fromValues(0.5, 0.5, -0.5); // default eye position in world space
-var defaultCenter = vec3.fromValues(0.5, 0.5, 0.5); // default view direction in world space
-var defaultUp = vec3.fromValues(0, 1, 0); // default view up vector
-var lightAmbient = vec3.fromValues(1, 1, 1); // default light ambient emission
-var lightDiffuse = vec3.fromValues(1, 1, 1); // default light diffuse emission
-var lightSpecular = vec3.fromValues(1, 1, 1); // default light specular emission
-var lightPosition = vec3.fromValues(2, 4, -0.5); // default light position
-var rotateTheta = Math.PI/50; // how much to rotate models by with each key press
-var lightMode = 0;
 /* webgl and geometry data */
 var gl = null; // the all powerful gl object. It's all here folks!
 var inputTriangles = []; // the triangle data as loaded from input files
@@ -24,24 +15,11 @@ var normalBuffers = []; // this contains normal component lists by set, in tripl
 var textureBuffers = [];
 var triSetSizes = []; // this contains the size of each triangle set
 var triangleBuffers = []; // lists of indices into vertexBuffers by set, in triples
-var textures = [];
-var uvToAdd = [];
 /* shader parameter locations */
 var vPosAttribLoc; // where to put position for vertex shader
 var mMatrixULoc; // where to put model matrix for vertex shader
-var vTextAttribLoc;
-var samplerUniform;
-var lightModeUniform;
 var pvmMatrixULoc; // where to put project model view matrix for vertex shader
-var ambientULoc; // where to put ambient reflecivity for fragment shader
-var diffuseULoc; // where to put diffuse reflecivity for fragment shader
-var specularULoc; // where to put specular reflecivity for fragment shader
-var shininessULoc; // where to put specular exponent for fragment shader
 
-/* interaction variables */
-var Eye = vec3.clone(defaultEye); // eye position in world space
-var Center = vec3.clone(defaultCenter); // view direction in world space
-var Up = vec3.clone(defaultUp); // view up vector in world space
 var viewDelta = 0; // how much to displace view with each key press
 
 // ASSIGNMENT HELPER FUNCTIONS
