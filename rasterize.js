@@ -1,10 +1,10 @@
 /* GLOBAL CONSTANTS AND VARIABLES */
 
 /* assignment specific globals */
-const INPUT_TRIANGLES_URL = "./triangles.json"; // triangles file loc
+const INPUT_TRIANGLES_URL = "./cubes.json"; // triangles file loc
 const INPUT_ELLIPSOIDS_URL = "./ellipsoids.json"; // ellipsoids file loc
-var defaultEye = vec3.fromValues(0.5,0.5,-0.5); // default eye position in world space
-var defaultCenter = vec3.fromValues(0.5,0.5,0.5); // default view direction in world space
+var defaultEye = vec3.fromValues(0,0,-0.5); // default eye position in world space
+var defaultCenter = vec3.fromValues(0,0,0.5); // default view direction in world space
 var defaultUp = vec3.fromValues(0,1,0); // default view up vector
 var lightAmbient = vec3.fromValues(1,1,1); // default light ambient emission
 var lightDiffuse = vec3.fromValues(1,1,1); // default light diffuse emission
@@ -68,178 +68,12 @@ function getJSONFile(url,descr) {
     }
 } // end get input json file
 
-// does stuff when keys are pressed
-function handleKeyDown(event) {
-    
-    const modelEnum = {TRIANGLES: "triangles", ELLIPSOID: "ellipsoid"}; // enumerated model type
-    const dirEnum = {NEGATIVE: -1, POSITIVE: 1}; // enumerated rotation direction
-    
-    function highlightModel(modelType,whichModel) {
-        if (handleKeyDown.modelOn != null)
-            handleKeyDown.modelOn.on = false;
-        handleKeyDown.whichOn = whichModel;
-        if (modelType == modelEnum.TRIANGLES)
-            handleKeyDown.modelOn = inputTriangles[whichModel]; 
-        else
-            handleKeyDown.modelOn = inputEllipsoids[whichModel]; 
-        handleKeyDown.modelOn.on = true; 
-    } // end highlight model
-    
-    function translateModel(offset) {
-        if (handleKeyDown.modelOn != null)
-            vec3.add(handleKeyDown.modelOn.translation,handleKeyDown.modelOn.translation,offset);
-    } // end translate model
-
-    function rotateModel(axis,direction) {
-        if (handleKeyDown.modelOn != null) {
-            var newRotation = mat4.create();
-
-            mat4.fromRotation(newRotation,direction*rotateTheta,axis); // get a rotation matrix around passed axis
-            vec3.transformMat4(handleKeyDown.modelOn.xAxis,handleKeyDown.modelOn.xAxis,newRotation); // rotate model x axis tip
-            vec3.transformMat4(handleKeyDown.modelOn.yAxis,handleKeyDown.modelOn.yAxis,newRotation); // rotate model y axis tip
-        } // end if there is a highlighted model
-    } // end rotate model
-    
-    // set up needed view params
-    var lookAt = vec3.create(), viewRight = vec3.create(), temp = vec3.create(); // lookat, right & temp vectors
-    lookAt = vec3.normalize(lookAt,vec3.subtract(temp,Center,Eye)); // get lookat vector
-    viewRight = vec3.normalize(viewRight,vec3.cross(temp,lookAt,Up)); // get view right vector
-    
-    // highlight static variables
-    handleKeyDown.whichOn = handleKeyDown.whichOn == undefined ? -1 : handleKeyDown.whichOn; // nothing selected initially
-    handleKeyDown.modelOn = handleKeyDown.modelOn == undefined ? null : handleKeyDown.modelOn; // nothing selected initially
-
-    switch (event.code) {
-        
-        // model selection
-        case "Space": 
-            if (handleKeyDown.modelOn != null)
-                handleKeyDown.modelOn.on = false; // turn off highlighted model
-            handleKeyDown.modelOn = null; // no highlighted model
-            handleKeyDown.whichOn = -1; // nothing highlighted
-            break;
-        case "ArrowRight": // select next triangle set
-            highlightModel(modelEnum.TRIANGLES,(handleKeyDown.whichOn+1) % numTriangleSets);
-            break;
-        case "ArrowLeft": // select previous triangle set
-            highlightModel(modelEnum.TRIANGLES,(handleKeyDown.whichOn > 0) ? handleKeyDown.whichOn-1 : numTriangleSets-1);
-            break;
-        case "ArrowUp": // select next ellipsoid
-            highlightModel(modelEnum.ELLIPSOID,(handleKeyDown.whichOn+1) % numEllipsoids);
-            break;
-        case "ArrowDown": // select previous ellipsoid
-            highlightModel(modelEnum.ELLIPSOID,(handleKeyDown.whichOn > 0) ? handleKeyDown.whichOn-1 : numEllipsoids-1);
-            break;
-            
-        // view change
-        case "KeyA": // translate view left, rotate left with shift
-            Center = vec3.add(Center,Center,vec3.scale(temp,viewRight,viewDelta));
-            if (!event.getModifierState("Shift"))
-                Eye = vec3.add(Eye,Eye,vec3.scale(temp,viewRight,viewDelta));
-            break;
-        case "KeyD": // translate view right, rotate right with shift
-            Center = vec3.add(Center,Center,vec3.scale(temp,viewRight,-viewDelta));
-            if (!event.getModifierState("Shift"))
-                Eye = vec3.add(Eye,Eye,vec3.scale(temp,viewRight,-viewDelta));
-            break;
-        case "KeyS": // translate view backward, rotate up with shift
-            if (event.getModifierState("Shift")) {
-                Center = vec3.add(Center,Center,vec3.scale(temp,Up,viewDelta));
-                Up = vec3.cross(Up,viewRight,vec3.subtract(lookAt,Center,Eye)); /* global side effect */
-            } else {
-                Eye = vec3.add(Eye,Eye,vec3.scale(temp,lookAt,-viewDelta));
-                Center = vec3.add(Center,Center,vec3.scale(temp,lookAt,-viewDelta));
-            } // end if shift not pressed
-            break;
-        case "KeyW": // translate view forward, rotate down with shift
-            if (event.getModifierState("Shift")) {
-                Center = vec3.add(Center,Center,vec3.scale(temp,Up,-viewDelta));
-                Up = vec3.cross(Up,viewRight,vec3.subtract(lookAt,Center,Eye)); /* global side effect */
-            } else {
-                Eye = vec3.add(Eye,Eye,vec3.scale(temp,lookAt,viewDelta));
-                Center = vec3.add(Center,Center,vec3.scale(temp,lookAt,viewDelta));
-            } // end if shift not pressed
-            break;
-        case "KeyQ": // translate view up, rotate counterclockwise with shift
-            if (event.getModifierState("Shift"))
-                Up = vec3.normalize(Up,vec3.add(Up,Up,vec3.scale(temp,viewRight,-viewDelta)));
-            else {
-                Eye = vec3.add(Eye,Eye,vec3.scale(temp,Up,viewDelta));
-                Center = vec3.add(Center,Center,vec3.scale(temp,Up,viewDelta));
-            } // end if shift not pressed
-            break;
-        case "KeyE": // translate view down, rotate clockwise with shift
-            if (event.getModifierState("Shift"))
-                Up = vec3.normalize(Up,vec3.add(Up,Up,vec3.scale(temp,viewRight,viewDelta)));
-            else {
-                Eye = vec3.add(Eye,Eye,vec3.scale(temp,Up,-viewDelta));
-                Center = vec3.add(Center,Center,vec3.scale(temp,Up,-viewDelta));
-            } // end if shift not pressed
-            break;
-        case "Escape": // reset view to default
-            Eye = vec3.copy(Eye,defaultEye);
-            Center = vec3.copy(Center,defaultCenter);
-            Up = vec3.copy(Up,defaultUp);
-            break;
-            
-        // model transformation
-        case "KeyK": // translate left, rotate left with shift
-            if (event.getModifierState("Shift"))
-                rotateModel(Up,dirEnum.NEGATIVE);
-            else
-                translateModel(vec3.scale(temp,viewRight,viewDelta));
-            break;
-        case "Semicolon": // translate right, rotate right with shift
-            if (event.getModifierState("Shift"))
-                rotateModel(Up,dirEnum.POSITIVE);
-            else
-                translateModel(vec3.scale(temp,viewRight,-viewDelta));
-            break;
-        case "KeyL": // translate backward, rotate up with shift
-            if (event.getModifierState("Shift"))
-                rotateModel(viewRight,dirEnum.POSITIVE);
-            else
-                translateModel(vec3.scale(temp,lookAt,-viewDelta));
-            break;
-        case "KeyO": // translate forward, rotate down with shift
-            if (event.getModifierState("Shift"))
-                rotateModel(viewRight,dirEnum.NEGATIVE);
-            else
-                translateModel(vec3.scale(temp,lookAt,viewDelta));
-            break;
-        case "KeyI": // translate up, rotate counterclockwise with shift 
-            if (event.getModifierState("Shift"))
-                rotateModel(lookAt,dirEnum.POSITIVE);
-            else
-                translateModel(vec3.scale(temp,Up,viewDelta));
-            break;
-        case "KeyP": // translate down, rotate clockwise with shift
-            if (event.getModifierState("Shift"))
-                rotateModel(lookAt,dirEnum.NEGATIVE);
-            else
-                translateModel(vec3.scale(temp,Up,-viewDelta));
-            break;
-        case "Backspace": // reset model transforms to default
-            for (var whichTriSet=0; whichTriSet<numTriangleSets; whichTriSet++) {
-                vec3.set(inputTriangles[whichTriSet].translation,0,0,0);
-                vec3.set(inputTriangles[whichTriSet].xAxis,1,0,0);
-                vec3.set(inputTriangles[whichTriSet].yAxis,0,1,0);
-            } // end for all triangle sets
-            for (var whichEllipsoid=0; whichEllipsoid<numEllipsoids; whichEllipsoid++) {
-                vec3.set(inputEllipsoids[whichEllipsoid].translation,0,0,0);
-                vec3.set(inputEllipsoids[whichTriSet].xAxis,1,0,0);
-                vec3.set(inputEllipsoids[whichTriSet].yAxis,0,1,0);
-            } // end for all ellipsoids
-            break;
-    } // end switch
-} // end handleKeyDown
-
 // set up the webGL environment
 function setupWebGL() {
     
     // Set up keys
-    document.onkeydown = handleKeyDown; // call this when key pressed
-
+    document.addEventListener("click", handleClick);
+    console.log("here");
       // Get the image canvas, render an image in it
      var imageCanvas = document.getElementById("myImageCanvas"); // create a 2d canvas
       var cw = imageCanvas.width, ch = imageCanvas.height; 
@@ -432,11 +266,11 @@ function loadModels() {
                     
                     // set up various stats and transforms for this ellipsoid
                     ellipsoid = inputEllipsoids[whichEllipsoid];
-                    ellipsoid.on = false; // ellipsoids begin without highlight
-                    ellipsoid.translation = vec3.fromValues(0,0,0); // ellipsoids begin without translation
-                    ellipsoid.xAxis = vec3.fromValues(1,0,0); // ellipsoid X axis
-                    ellipsoid.yAxis = vec3.fromValues(0,1,0); // ellipsoid Y axis 
-                    ellipsoid.center = vec3.fromValues(ellipsoid.x,ellipsoid.y,ellipsoid.z); // locate ellipsoid ctr
+                    inputEllipsoids[whichEllipsoid].on = false; // ellipsoids begin without highlight
+                    inputEllipsoids[whichEllipsoid].translation = vec3.fromValues(0,0,0); // ellipsoids begin without translation
+                    inputEllipsoids[whichEllipsoid].xAxis = vec3.fromValues(1,0,0); // ellipsoid X axis
+                    inputEllipsoids[whichEllipsoid].yAxis = vec3.fromValues(0,1,0); // ellipsoid Y axis 
+                    inputEllipsoids[whichEllipsoid].center = vec3.fromValues(ellipsoid.x,ellipsoid.y,ellipsoid.z); // locate ellipsoid ctr
                     vec3.set(minXYZ,ellipsoid.x-ellipsoid.a,ellipsoid.y-ellipsoid.b,ellipsoid.z-ellipsoid.c); 
                     vec3.set(maxXYZ,ellipsoid.x+ellipsoid.a,ellipsoid.y+ellipsoid.b,ellipsoid.z+ellipsoid.c); 
                     vec3.min(minCorner,minCorner,minXYZ); // update world bbox min corner
@@ -469,6 +303,12 @@ function loadModels() {
     catch(e) {
         console.log(e);
     } // end catch
+
+    for (var whichEllipsoid=0; whichEllipsoid<numEllipsoids; whichEllipsoid++) {
+        ellipsoid = inputEllipsoids[whichEllipsoid];
+        ellipsoid.mMatrix = mat4.create();
+        ellipsoid.center = [ellipsoid.x, ellipsoid.y, 0]; console.log(ellipsoid.center);
+    }
 } // end load models
 
 // setup the webGL shaders
@@ -605,7 +445,13 @@ function setupShaders() {
         console.log(e);
     } // end catch
 } // end setup shaders
+var cnt = -1000;
 
+function handleClick(e) {
+    var x = (e.pageX-256)/256;
+    var y = (e.pageY-256)/256;
+    console.log("x is " + x + " y is " + y);
+}
 // render the loaded model
 function renderModels() {
     
@@ -659,9 +505,10 @@ function renderModels() {
     var currSet; // the tri set and its material properties
     for (var whichTriSet=0; whichTriSet<numTriangleSets; whichTriSet++) {
         currSet = inputTriangles[whichTriSet];
-        
+        //var speed = 0.001;
         // make model transform, add to view project
         makeModelTransform(currSet);
+        //mat4.translate(mMatrix, mMatrix, [speed*1, speed, 0]);
         mat4.multiply(pvmMatrix,pvMatrix,mMatrix); // project * view * model
         gl.uniformMatrix4fv(mMatrixULoc, false, mMatrix); // pass in the m matrix
         gl.uniformMatrix4fv(pvmMatrixULoc, false, pvmMatrix); // pass in the hpvm matrix
@@ -686,13 +533,25 @@ function renderModels() {
     
     // render each ellipsoid
     var ellipsoid, instanceTransform = mat4.create(); // the current ellipsoid and material
-    
+    var speed = 0.003; 
+    var shootangle=1.5;
     for (var whichEllipsoid=0; whichEllipsoid<numEllipsoids; whichEllipsoid++) {
         ellipsoid = inputEllipsoids[whichEllipsoid];
-        
+
         // define model transform, premult with pvmMatrix, feed to vertex shader
         makeModelTransform(ellipsoid);
-        pvmMatrix = mat4.multiply(pvmMatrix,pvMatrix,mMatrix); // premultiply with pv matrix
+
+        if(whichEllipsoid <= 2) { 
+            console.log(Math.sin(shootangle)); 
+            mat3.translate(ellipsoid.center, ellipsoid.center, [[-speed*Math.cos(shootangle), -speed*Math.sin(shootangle), 0]]); 
+            console.log("center moves to " + ellipsoid.center);
+        }
+        if(cnt < 10 && whichEllipsoid <= 2) {
+            mat4.translate(ellipsoid.mMatrix, ellipsoid.mMatrix, [-speed*Math.cos(shootangle), -speed*Math.sin(shootangle), 0]); 
+            console.log(ellipsoid.mMatrix); cnt ++; console.log("cnt is " + cnt);
+        }
+        pvmMatrix = mat4.multiply(pvmMatrix,pvMatrix,ellipsoid.mMatrix); // premultiply with pv matrix
+       
         gl.uniformMatrix4fv(mMatrixULoc, false, mMatrix); // pass in model matrix
         gl.uniformMatrix4fv(pvmMatrixULoc, false, pvmMatrix); // pass in project view model matrix
 
