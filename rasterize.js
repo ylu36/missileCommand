@@ -39,6 +39,7 @@ var Center = vec3.clone(defaultCenter); // view direction in world space
 var Up = vec3.clone(defaultUp); // view up vector in world space
 var viewDelta = 0; // how much to displace view with each key press
 
+var anti_index = 5;
 // ASSIGNMENT HELPER FUNCTIONS
 
 // get the JSON file from the passed URL
@@ -58,10 +59,10 @@ function getJSONFile(url,descr) {
             if ((httpReq.status !== 200) || (httpReq.readyState !== XMLHttpRequest.DONE))
                 throw "Unable to open "+descr+" file!";
             else
-                return JSON.parse(httpReq.response); 
+                return JSON.parse(httpReq.response);
         } // end if good params
-    } // end try    
-    
+    } // end try
+
     catch(e) {
         console.log(e);
         return(String.null);
@@ -70,22 +71,22 @@ function getJSONFile(url,descr) {
 
 // set up the webGL environment
 function setupWebGL() {
-    
+
     // Set up keys
-    document.addEventListener("click", handleClick);
+    document.addEventListener("click", handleclick);
     console.log("here");
       // Get the image canvas, render an image in it
      var imageCanvas = document.getElementById("myImageCanvas"); // create a 2d canvas
-      var cw = imageCanvas.width, ch = imageCanvas.height; 
-      imageContext = imageCanvas.getContext("2d"); 
-      var bkgdImage = new Image(); 
+      var cw = imageCanvas.width, ch = imageCanvas.height;
+      imageContext = imageCanvas.getContext("2d");
+      var bkgdImage = new Image();
       bkgdImage.crossOrigin = "Anonymous";
       bkgdImage.src = "https://ncsucgclass.github.io/prog3/sky.jpg";
       bkgdImage.onload = function(){
           var iw = bkgdImage.width, ih = bkgdImage.height;
-          imageContext.drawImage(bkgdImage,0,0,iw,ih,0,0,cw,ch);   
+          imageContext.drawImage(bkgdImage,0,0,iw,ih,0,0,cw,ch);
      } // end onload callback
-    
+
      // create a webgl canvas and set it up
      var webGLCanvas = document.getElementById("myWebGLCanvas"); // create a webgl canvas
      gl = webGLCanvas.getContext("webgl"); // get a webgl object from it
@@ -98,7 +99,7 @@ function setupWebGL() {
          gl.enable(gl.DEPTH_TEST); // use hidden surface removal (with zbuffering)
        }
      } // end try
-     
+
      catch(e) {
        console.log(e);
      } // end catch
@@ -118,12 +119,12 @@ function loadModels() {
             else if (numLongSteps < 4)
                 throw "in makeSphere: number of longitude steps too small!";
             else { // good number longitude steps
-            
+
                 console.log("ellipsoid xyz: "+ ellipsoid.x +" "+ ellipsoid.y +" "+ ellipsoid.z);
-                
+
                 // make vertices
                 var ellipsoidVertices = [0,-1,0]; // vertices to return, init to south pole
-                var angleIncr = (Math.PI+Math.PI) / numLongSteps; // angular increment 
+                var angleIncr = (Math.PI+Math.PI) / numLongSteps; // angular increment
                 var latLimitAngle = angleIncr * (Math.floor(numLongSteps/4)-1); // start/end lat angle
                 var latRadius, latY; // radius and Y at current latitude
                 for (var latAngle=-latLimitAngle; latAngle<=latLimitAngle; latAngle+=angleIncr) {
@@ -142,7 +143,7 @@ function loadModels() {
                         case 2: // z
                             return(val*currEllipsoid.c+currEllipsoid.z);
                     } // end switch
-                }); 
+                });
 
                 // make normals using the ellipsoid gradient equation
                 // resulting normals are unnormalized: we rely on shaders to normalize
@@ -156,8 +157,8 @@ function loadModels() {
                         case 2: // z
                             return(2/(currEllipsoid.c*currEllipsoid.c) * (val-currEllipsoid.z));
                     } // end switch
-                }); 
-                
+                });
+
                 // make triangles, from south pole to middle latitudes to north pole
                 var ellipsoidTriangles = []; // triangles to return
                 for (var whichLong=1; whichLong<numLongSteps; whichLong++) // south pole
@@ -180,12 +181,12 @@ function loadModels() {
             } // end if good number longitude steps
             return({vertices:ellipsoidVertices, normals:ellipsoidNormals, triangles:ellipsoidTriangles});
         } // end try
-        
+
         catch(e) {
             console.log(e);
         } // end catch
     } // end make ellipsoid
-    
+
     inputTriangles = getJSONFile(INPUT_TRIANGLES_URL,"triangles"); // read in the triangle data
 
     try {
@@ -200,17 +201,17 @@ function loadModels() {
             var triToAdd; // tri indices to add to the index array
             var maxCorner = vec3.fromValues(Number.MIN_VALUE,Number.MIN_VALUE,Number.MIN_VALUE); // bbox corner
             var minCorner = vec3.fromValues(Number.MAX_VALUE,Number.MAX_VALUE,Number.MAX_VALUE); // other corner
-        
+
             // process each triangle set to load webgl vertex and triangle buffers
             numTriangleSets = inputTriangles.length; // remember how many tri sets
             for (var whichSet=0; whichSet<numTriangleSets; whichSet++) { // for each tri set
-                
+
                 // set up hilighting, modeling translation and rotation
                 inputTriangles[whichSet].center = vec3.fromValues(0,0,0);  // center point of tri set
                 inputTriangles[whichSet].on = false; // not highlighted
                 inputTriangles[whichSet].translation = vec3.fromValues(0,0,0); // no translation
                 inputTriangles[whichSet].xAxis = vec3.fromValues(1,0,0); // model X axis
-                inputTriangles[whichSet].yAxis = vec3.fromValues(0,1,0); // model Y axis 
+                inputTriangles[whichSet].yAxis = vec3.fromValues(0,1,0); // model Y axis
 
                 // set up the vertex and normal arrays, define model center and axes
                 inputTriangles[whichSet].glVertices = []; // flat coord list for webgl
@@ -234,7 +235,7 @@ function loadModels() {
                 normalBuffers[whichSet] = gl.createBuffer(); // init empty webgl set normal component buffer
                 gl.bindBuffer(gl.ARRAY_BUFFER,normalBuffers[whichSet]); // activate that buffer
                 gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(inputTriangles[whichSet].glNormals),gl.STATIC_DRAW); // data in
-               
+
                 // set up the triangle index array, adjusting indices across sets
                 inputTriangles[whichSet].glTriangles = []; // flat index list for webgl
                 triSetSizes[whichSet] = inputTriangles[whichSet].triangles.length; // number of tris in this set
@@ -248,14 +249,14 @@ function loadModels() {
                 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, triangleBuffers[whichSet]); // activate that buffer
                 gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint16Array(inputTriangles[whichSet].glTriangles),gl.STATIC_DRAW); // data in
 
-            } // end for each triangle set 
-        
+            } // end for each triangle set
+
             inputEllipsoids = getJSONFile(INPUT_ELLIPSOIDS_URL,"ellipsoids"); // read in the ellipsoids
 
             if (inputEllipsoids == String.null)
                 throw "Unable to load ellipsoids file!";
             else {
-                
+
                 // init ellipsoid highlighting, translation and rotation; update bbox
                 var ellipsoid; // current ellipsoid
                 var ellipsoidModel; // current ellipsoid triangular model
@@ -263,22 +264,22 @@ function loadModels() {
                 var minXYZ = vec3.create(), maxXYZ = vec3.create();  // min/max xyz from ellipsoid
                 numEllipsoids = inputEllipsoids.length; // remember how many ellipsoids
                 for (var whichEllipsoid=0; whichEllipsoid<numEllipsoids; whichEllipsoid++) {
-                    
+
                     // set up various stats and transforms for this ellipsoid
                     ellipsoid = inputEllipsoids[whichEllipsoid];
                     inputEllipsoids[whichEllipsoid].on = false; // ellipsoids begin without highlight
                     inputEllipsoids[whichEllipsoid].translation = vec3.fromValues(0,0,0); // ellipsoids begin without translation
                     inputEllipsoids[whichEllipsoid].xAxis = vec3.fromValues(1,0,0); // ellipsoid X axis
-                    inputEllipsoids[whichEllipsoid].yAxis = vec3.fromValues(0,1,0); // ellipsoid Y axis 
+                    inputEllipsoids[whichEllipsoid].yAxis = vec3.fromValues(0,1,0); // ellipsoid Y axis
                     inputEllipsoids[whichEllipsoid].center = vec3.fromValues(ellipsoid.x,ellipsoid.y,ellipsoid.z); // locate ellipsoid ctr
-                    vec3.set(minXYZ,ellipsoid.x-ellipsoid.a,ellipsoid.y-ellipsoid.b,ellipsoid.z-ellipsoid.c); 
-                    vec3.set(maxXYZ,ellipsoid.x+ellipsoid.a,ellipsoid.y+ellipsoid.b,ellipsoid.z+ellipsoid.c); 
+                    vec3.set(minXYZ,ellipsoid.x-ellipsoid.a,ellipsoid.y-ellipsoid.b,ellipsoid.z-ellipsoid.c);
+                    vec3.set(maxXYZ,ellipsoid.x+ellipsoid.a,ellipsoid.y+ellipsoid.b,ellipsoid.z+ellipsoid.c);
                     vec3.min(minCorner,minCorner,minXYZ); // update world bbox min corner
                     vec3.max(maxCorner,maxCorner,maxXYZ); // update world bbox max corner
 
                     // make the ellipsoid model
                     ellipsoidModel = makeEllipsoid(ellipsoid,32);
-    
+
                     // send the ellipsoid vertex coords and normals to webGL
                     vertexBuffers.push(gl.createBuffer()); // init empty webgl ellipsoid vertex coord buffer
                     gl.bindBuffer(gl.ARRAY_BUFFER,vertexBuffers[vertexBuffers.length-1]); // activate that buffer
@@ -286,47 +287,48 @@ function loadModels() {
                     normalBuffers.push(gl.createBuffer()); // init empty webgl ellipsoid vertex normal buffer
                     gl.bindBuffer(gl.ARRAY_BUFFER,normalBuffers[normalBuffers.length-1]); // activate that buffer
                     gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(ellipsoidModel.normals),gl.STATIC_DRAW); // data in
-        
+
                     triSetSizes.push(ellipsoidModel.triangles.length);
-    
+
                     // send the triangle indices to webGL
                     triangleBuffers.push(gl.createBuffer()); // init empty triangle index buffer
                     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, triangleBuffers[triangleBuffers.length-1]); // activate that buffer
                     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint16Array(ellipsoidModel.triangles),gl.STATIC_DRAW); // data in
                 } // end for each ellipsoid
-                
+
                 viewDelta = vec3.length(vec3.subtract(temp,maxCorner,minCorner)) / 100; // set global
             } // end if ellipsoid file loaded
         } // end if triangle file loaded
-    } // end try 
-    
+    } // end try
+
     catch(e) {
         console.log(e);
     } // end catch
 
     for (var whichEllipsoid=0; whichEllipsoid<numEllipsoids; whichEllipsoid++) {
         ellipsoid = inputEllipsoids[whichEllipsoid];
-        ellipsoid.mMatrix = mat4.create();
-        ellipsoid.center = [ellipsoid.x, ellipsoid.y, 0]; console.log(ellipsoid.center);
+        inputEllipsoids[whichEllipsoid].mMatrix = mat4.create();
+        inputEllipsoids[whichEllipsoid].center = [ellipsoid.x, ellipsoid.y, 0];
+        inputEllipsoids[whichEllipsoid].alive = false;
     }
 } // end load models
 
 // setup the webGL shaders
 function setupShaders() {
-    
+
     // define vertex shader in essl using es6 template strings
     var vShaderCode = `
         attribute vec3 aVertexPosition; // vertex position
         attribute vec3 aVertexNormal; // vertex normal
-        
+
         uniform mat4 umMatrix; // the model matrix
         uniform mat4 upvmMatrix; // the project view model matrix
-        
+
         varying vec3 vWorldPos; // interpolated world position of vertex
         varying vec3 vVertexNormal; // interpolated normal for frag shader
 
         void main(void) {
-            
+
             // vertex position
             vec4 vWorldPos4 = umMatrix * vec4(aVertexPosition, 1.0);
             vWorldPos = vec3(vWorldPos4.x,vWorldPos4.y,vWorldPos4.z);
@@ -334,56 +336,56 @@ function setupShaders() {
 
             // vertex normal (assume no non-uniform scale)
             vec4 vWorldNormal4 = umMatrix * vec4(aVertexNormal, 0.0);
-            vVertexNormal = normalize(vec3(vWorldNormal4.x,vWorldNormal4.y,vWorldNormal4.z)); 
+            vVertexNormal = normalize(vec3(vWorldNormal4.x,vWorldNormal4.y,vWorldNormal4.z));
         }
     `;
-    
+
     // define fragment shader in essl using es6 template strings
     var fShaderCode = `
         precision mediump float; // set float to medium precision
 
         // eye location
         uniform vec3 uEyePosition; // the eye's position in world
-        
+
         // light properties
         uniform vec3 uLightAmbient; // the light's ambient color
         uniform vec3 uLightDiffuse; // the light's diffuse color
         uniform vec3 uLightSpecular; // the light's specular color
         uniform vec3 uLightPosition; // the light's position
-        
+
         // material properties
         uniform vec3 uAmbient; // the ambient reflectivity
         uniform vec3 uDiffuse; // the diffuse reflectivity
         uniform vec3 uSpecular; // the specular reflectivity
         uniform float uShininess; // the specular exponent
-        
+
         // geometry properties
         varying vec3 vWorldPos; // world xyz of fragment
         varying vec3 vVertexNormal; // normal of fragment
-            
+
         void main(void) {
-        
+
             // ambient term
-            vec3 ambient = uAmbient*uLightAmbient; 
-            
+            vec3 ambient = uAmbient*uLightAmbient;
+
             // diffuse term
-            vec3 normal = normalize(vVertexNormal); 
+            vec3 normal = normalize(vVertexNormal);
             vec3 light = normalize(uLightPosition - vWorldPos);
             float lambert = max(0.0,dot(normal,light));
             vec3 diffuse = uDiffuse*uLightDiffuse*lambert; // diffuse term
-            
+
             // specular term
             vec3 eye = normalize(uEyePosition - vWorldPos);
             vec3 halfVec = normalize(light+eye);
             float highlight = pow(max(0.0,dot(normal,halfVec)),uShininess);
             vec3 specular = uSpecular*uLightSpecular*highlight; // specular term
-            
+
             // combine to output color
             vec3 colorOut = ambient + diffuse + specular; // no specular yet
-            gl_FragColor = vec4(colorOut, 1.0); 
+            gl_FragColor = vec4(colorOut, 1.0);
         }
     `;
-    
+
     try {
         var fShader = gl.createShader(gl.FRAGMENT_SHADER); // create frag shader
         gl.shaderSource(fShader,fShaderCode); // attach code to shader
@@ -392,12 +394,12 @@ function setupShaders() {
         var vShader = gl.createShader(gl.VERTEX_SHADER); // create vertex shader
         gl.shaderSource(vShader,vShaderCode); // attach code to shader
         gl.compileShader(vShader); // compile the code for gpu execution
-            
+
         if (!gl.getShaderParameter(fShader, gl.COMPILE_STATUS)) { // bad frag shader compile
-            throw "error during fragment shader compile: " + gl.getShaderInfoLog(fShader);  
+            throw "error during fragment shader compile: " + gl.getShaderInfoLog(fShader);
             gl.deleteShader(fShader);
         } else if (!gl.getShaderParameter(vShader, gl.COMPILE_STATUS)) { // bad vertex shader compile
-            throw "error during vertex shader compile: " + gl.getShaderInfoLog(vShader);  
+            throw "error during vertex shader compile: " + gl.getShaderInfoLog(vShader);
             gl.deleteShader(vShader);
         } else { // no compile errors
             var shaderProgram = gl.createProgram(); // create the single shader program
@@ -409,17 +411,17 @@ function setupShaders() {
                 throw "error during shader program linking: " + gl.getProgramInfoLog(shaderProgram);
             } else { // no shader program link errors
                 gl.useProgram(shaderProgram); // activate shader program (frag and vert)
-                
+
                 // locate and enable vertex attributes
                 vPosAttribLoc = gl.getAttribLocation(shaderProgram, "aVertexPosition"); // ptr to vertex pos attrib
                 gl.enableVertexAttribArray(vPosAttribLoc); // connect attrib to array
                 vNormAttribLoc = gl.getAttribLocation(shaderProgram, "aVertexNormal"); // ptr to vertex normal attrib
                 gl.enableVertexAttribArray(vNormAttribLoc); // connect attrib to array
-                
+
                 // locate vertex uniforms
                 mMatrixULoc = gl.getUniformLocation(shaderProgram, "umMatrix"); // ptr to mmat
                 pvmMatrixULoc = gl.getUniformLocation(shaderProgram, "upvmMatrix"); // ptr to pvmmat
-                
+
                 // locate fragment uniforms
                 var eyePositionULoc = gl.getUniformLocation(shaderProgram, "uEyePosition"); // ptr to eye position
                 var lightAmbientULoc = gl.getUniformLocation(shaderProgram, "uLightAmbient"); // ptr to light ambient
@@ -430,7 +432,7 @@ function setupShaders() {
                 diffuseULoc = gl.getUniformLocation(shaderProgram, "uDiffuse"); // ptr to diffuse
                 specularULoc = gl.getUniformLocation(shaderProgram, "uSpecular"); // ptr to specular
                 shininessULoc = gl.getUniformLocation(shaderProgram, "uShininess"); // ptr to shininess
-                
+
                 // pass global constants into fragment uniforms
                 gl.uniform3fv(eyePositionULoc,Eye); // pass in the eye's position
                 gl.uniform3fv(lightAmbientULoc,lightAmbient); // pass in the light's ambient emission
@@ -439,61 +441,38 @@ function setupShaders() {
                 gl.uniform3fv(lightPositionULoc,lightPosition); // pass in the light's position
             } // end if no shader program link errors
         } // end if no compile errors
-    } // end try 
-    
+    } // end try
+
     catch(e) {
         console.log(e);
     } // end catch
 } // end setup shaders
-var cnt = -1000;
 
-function handleClick(e) {
-    var x = (e.pageX-256)/256;
-    var y = (e.pageY-256)/256;
-    console.log("x is " + x + " y is " + y);
+function handleclick(e) {
+    var x = -(e.pageX-256)/256;
+    var y = -(e.pageY-256)/256;
+    if(anti_index == numEllipsoids) anti_index = 5;
+    inputEllipsoids[anti_index].alive = true;
+    inputEllipsoids[anti_index].destination = [x,y];
+    inputEllipsoids[anti_index].angle = Math.atan2(y-inputEllipsoids[anti_index].y, x-inputEllipsoids[anti_index].x);
+
+    anti_index ++;
+    //console.log("angle is "+inputEllipsoids[anti_index].angle );
 }
 // render the loaded model
 function renderModels() {
-    
-    // construct the model transform matrix, based on model state
-    function makeModelTransform(currModel) {
-        var zAxis = vec3.create(), sumRotation = mat4.create(), temp = mat4.create(), negCtr = vec3.create();
 
-        // move the model to the origin
-        mat4.fromTranslation(mMatrix,vec3.negate(negCtr,currModel.center)); 
-        
-        // scale for highlighting if needed
-        if (currModel.on)
-            mat4.multiply(mMatrix,mat4.fromScaling(temp,vec3.fromValues(1.2,1.2,1.2)),mMatrix); // S(1.2) * T(-ctr)
-        
-        // rotate the model to current interactive orientation
-        vec3.normalize(zAxis,vec3.cross(zAxis,currModel.xAxis,currModel.yAxis)); // get the new model z axis
-        mat4.set(sumRotation, // get the composite rotation
-            currModel.xAxis[0], currModel.yAxis[0], zAxis[0], 0,
-            currModel.xAxis[1], currModel.yAxis[1], zAxis[1], 0,
-            currModel.xAxis[2], currModel.yAxis[2], zAxis[2], 0,
-            0, 0,  0, 1);
-        mat4.multiply(mMatrix,sumRotation,mMatrix); // R(ax) * S(1.2) * T(-ctr)
-        
-        // translate back to model center
-        mat4.multiply(mMatrix,mat4.fromTranslation(temp,currModel.center),mMatrix); // T(ctr) * R(ax) * S(1.2) * T(-ctr)
-
-        // translate model to current interactive orientation
-        mat4.multiply(mMatrix,mat4.fromTranslation(temp,currModel.translation),mMatrix); // T(pos)*T(ctr)*R(ax)*S(1.2)*T(-ctr)
-        
-    } // end make model transform
-    
     // var hMatrix = mat4.create(); // handedness matrix
     var pMatrix = mat4.create(); // projection matrix
     var vMatrix = mat4.create(); // view matrix
     var mMatrix = mat4.create(); // model matrix
     var pvMatrix = mat4.create(); // hand * proj * view matrices
     var pvmMatrix = mat4.create(); // hand * proj * view * model matrices
-    
+
     window.requestAnimationFrame(renderModels); // set up frame render callback
-    
+
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); // clear frame/depth buffers
-    
+
     // set up projection and view
     // mat4.fromScaling(hMatrix,vec3.fromValues(-1,1,1)); // create handedness matrix
     mat4.perspective(pMatrix,0.5*Math.PI,1,0.1,10); // create projection matrix
@@ -505,20 +484,17 @@ function renderModels() {
     var currSet; // the tri set and its material properties
     for (var whichTriSet=0; whichTriSet<numTriangleSets; whichTriSet++) {
         currSet = inputTriangles[whichTriSet];
-        //var speed = 0.001;
-        // make model transform, add to view project
-        makeModelTransform(currSet);
-        //mat4.translate(mMatrix, mMatrix, [speed*1, speed, 0]);
+
         mat4.multiply(pvmMatrix,pvMatrix,mMatrix); // project * view * model
         gl.uniformMatrix4fv(mMatrixULoc, false, mMatrix); // pass in the m matrix
         gl.uniformMatrix4fv(pvmMatrixULoc, false, pvmMatrix); // pass in the hpvm matrix
-        
+
         // reflectivity: feed to the fragment shader
         gl.uniform3fv(ambientULoc,currSet.material.ambient); // pass in the ambient reflectivity
         gl.uniform3fv(diffuseULoc,currSet.material.diffuse); // pass in the diffuse reflectivity
         gl.uniform3fv(specularULoc,currSet.material.specular); // pass in the specular reflectivity
         gl.uniform1f(shininessULoc,currSet.material.n); // pass in the specular exponent
-        
+
         // vertex buffer: activate and feed into vertex shader
         gl.bindBuffer(gl.ARRAY_BUFFER,vertexBuffers[whichTriSet]); // activate
         gl.vertexAttribPointer(vPosAttribLoc,3,gl.FLOAT,false,0,0); // feed
@@ -528,31 +504,32 @@ function renderModels() {
         // triangle buffer: activate and render
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,triangleBuffers[whichTriSet]); // activate
         gl.drawElements(gl.TRIANGLES,3*triSetSizes[whichTriSet],gl.UNSIGNED_SHORT,0); // render
-        
+
     } // end for each triangle set
-    
+
     // render each ellipsoid
     var ellipsoid, instanceTransform = mat4.create(); // the current ellipsoid and material
-    var speed = 0.003; 
+    var speed = 0.006;
     var shootangle=1.5;
+    var distance;
     for (var whichEllipsoid=0; whichEllipsoid<numEllipsoids; whichEllipsoid++) {
         ellipsoid = inputEllipsoids[whichEllipsoid];
+        var center1 = vec4.fromValues(ellipsoid.x, ellipsoid.y, ellipsoid.z, 1.0);
 
-        // define model transform, premult with pvmMatrix, feed to vertex shader
-        makeModelTransform(ellipsoid);
+        if(whichEllipsoid <= 2) {
+            mat4.translate(ellipsoid.mMatrix, ellipsoid.mMatrix, [-speed*Math.cos(shootangle), -speed*Math.sin(shootangle), 0]);
+            distance = (center1[0]-ellipsoid.center[0])*(center1[0]-ellipsoid.center[0]) + (center1[1]-ellipsoid.center[1])*(center1[1]-ellipsoid.center[1]);
+          //if(whichEllipsoid == 1)  //console.log(distance);
+        }
+        if(whichEllipsoid >= 5) {
+          if(!ellipsoid.alive) continue;
+          shootangle = ellipsoid.angle; // console.log("angle is " + shootangle);
+          mat4.translate(ellipsoid.mMatrix, ellipsoid.mMatrix, [speed*Math.cos(ellipsoid.angle), speed*Math.sin(ellipsoid.angle), 0]);
+        }
 
-        if(whichEllipsoid <= 2) { 
-            console.log(Math.sin(shootangle)); 
-            mat3.translate(ellipsoid.center, ellipsoid.center, [[-speed*Math.cos(shootangle), -speed*Math.sin(shootangle), 0]]); 
-            console.log("center moves to " + ellipsoid.center);
-        }
-        if(cnt < 10 && whichEllipsoid <= 2) {
-            mat4.translate(ellipsoid.mMatrix, ellipsoid.mMatrix, [-speed*Math.cos(shootangle), -speed*Math.sin(shootangle), 0]); 
-            console.log(ellipsoid.mMatrix); cnt ++; console.log("cnt is " + cnt);
-        }
+
         pvmMatrix = mat4.multiply(pvmMatrix,pvMatrix,ellipsoid.mMatrix); // premultiply with pv matrix
-       
-        gl.uniformMatrix4fv(mMatrixULoc, false, mMatrix); // pass in model matrix
+        gl.uniformMatrix4fv(mMatrixULoc, false, ellipsoid.mMatrix); // pass in model matrix
         gl.uniformMatrix4fv(pvmMatrixULoc, false, pvmMatrix); // pass in project view model matrix
 
         // reflectivity: feed to the fragment shader
@@ -566,7 +543,7 @@ function renderModels() {
         gl.bindBuffer(gl.ARRAY_BUFFER,normalBuffers[numTriangleSets+whichEllipsoid]); // activate normal buffer
         gl.vertexAttribPointer(vNormAttribLoc,3,gl.FLOAT,false,0,0); // feed normal buffer to shader
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,triangleBuffers[numTriangleSets+whichEllipsoid]); // activate tri buffer
-        
+
         // draw a transformed instance of the ellipsoid
         gl.drawElements(gl.TRIANGLES,triSetSizes[numTriangleSets+whichEllipsoid],gl.UNSIGNED_SHORT,0); // render
     } // end for each ellipsoid
@@ -576,10 +553,10 @@ function renderModels() {
 /* MAIN -- HERE is where execution begins after window load */
 
 function main() {
-  
+
   setupWebGL(); // set up the webGL environment
   loadModels(); // load in the models from tri file
   setupShaders(); // setup the webGL shaders
   renderModels(); // draw the triangles using webGL
-  
+
 } // end main
