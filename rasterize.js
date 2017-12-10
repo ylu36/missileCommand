@@ -11,7 +11,8 @@ var lightDiffuse = vec3.fromValues(1,1,1); // default light diffuse emission
 var lightSpecular = vec3.fromValues(1,1,1); // default light specular emission
 var lightPosition = vec3.fromValues(2,4,-0.5); // default light position
 var rotateTheta = Math.PI/50; // how much to rotate models by with each key press
-
+var time = 0;
+var context;
 /* webgl and geometry data */
 var gl = null; // the all powerful gl object. It's all here folks!
 var inputTriangles = []; // the triangle data as loaded from input files
@@ -39,7 +40,9 @@ var Center = vec3.clone(defaultCenter); // view direction in world space
 var Up = vec3.clone(defaultUp); // view up vector in world space
 var viewDelta = 0; // how much to displace view with each key press
 
-var anti_index = 5;
+var MISSLE_NUM = 4;
+var ANTI_NUM = MISSLE_NUM + 2;
+var anti_index = ANTI_NUM;
 // ASSIGNMENT HELPER FUNCTIONS
 
 // get the JSON file from the passed URL
@@ -74,11 +77,11 @@ function setupWebGL() {
 
     // Set up keys
     document.addEventListener("click", handleclick);
-    console.log("here");
       // Get the image canvas, render an image in it
      var imageCanvas = document.getElementById("myImageCanvas"); // create a 2d canvas
       var cw = imageCanvas.width, ch = imageCanvas.height;
       imageContext = imageCanvas.getContext("2d");
+      context = imageCanvas.getContext("2d");
       var bkgdImage = new Image();
       bkgdImage.crossOrigin = "Anonymous";
       bkgdImage.src = "https://ncsucgclass.github.io/prog3/sky.jpg";
@@ -447,21 +450,28 @@ function setupShaders() {
         console.log(e);
     } // end catch
 } // end setup shaders
+function drawend(context) {
+    context.beginPath();
 
+    context.font = "40px Times New Roman";
+    context.fillStyle = 'red';
+    context.fillText("I Love You 小宝贝", 96, 256);
+
+    context.stroke();
+}
 function handleclick(e) {
     var x = -(e.pageX-256)/256;
     var y = -(e.pageY-256)/256;
-    if(anti_index == numEllipsoids) anti_index = 5;
+    if(anti_index == numEllipsoids) anti_index = ANTI_NUM;
     inputEllipsoids[anti_index].alive = true;
     inputEllipsoids[anti_index].destination = [x,y];
     inputEllipsoids[anti_index].angle = Math.atan2(y-inputEllipsoids[anti_index].y, x-inputEllipsoids[anti_index].x);
-
-    anti_index ++;
+    anti_index ++;time++;
     //console.log("angle is "+inputEllipsoids[anti_index].angle );
 }
 // render the loaded model
 function renderModels() {
-
+if(time == 5) drawend(context);
     // var hMatrix = mat4.create(); // handedness matrix
     var pMatrix = mat4.create(); // projection matrix
     var vMatrix = mat4.create(); // view matrix
@@ -516,17 +526,16 @@ function renderModels() {
         ellipsoid = inputEllipsoids[whichEllipsoid];
         var center1 = vec4.fromValues(ellipsoid.x, ellipsoid.y, ellipsoid.z, 1.0);
 
-        if(whichEllipsoid <= 2) {
+        if(whichEllipsoid < MISSLE_NUM) {
             mat4.translate(ellipsoid.mMatrix, ellipsoid.mMatrix, [-speed*Math.cos(shootangle), -speed*Math.sin(shootangle), 0]);
             distance = (center1[0]-ellipsoid.center[0])*(center1[0]-ellipsoid.center[0]) + (center1[1]-ellipsoid.center[1])*(center1[1]-ellipsoid.center[1]);
-          //if(whichEllipsoid == 1)  //console.log(distance);
+          if(whichEllipsoid == 1)  console.log(center1);
         }
-        if(whichEllipsoid >= 5) {
+        if(whichEllipsoid >= ANTI_NUM) {
           if(!ellipsoid.alive) continue;
           shootangle = ellipsoid.angle; // console.log("angle is " + shootangle);
           mat4.translate(ellipsoid.mMatrix, ellipsoid.mMatrix, [speed*Math.cos(ellipsoid.angle), speed*Math.sin(ellipsoid.angle), 0]);
         }
-
 
         pvmMatrix = mat4.multiply(pvmMatrix,pvMatrix,ellipsoid.mMatrix); // premultiply with pv matrix
         gl.uniformMatrix4fv(mMatrixULoc, false, ellipsoid.mMatrix); // pass in model matrix
