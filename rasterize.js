@@ -215,7 +215,7 @@ function loadModels() {
                 inputTriangles[whichSet].translation = vec3.fromValues(0,0,0); // no translation
                 inputTriangles[whichSet].xAxis = vec3.fromValues(1,0,0); // model X axis
                 inputTriangles[whichSet].yAxis = vec3.fromValues(0,1,0); // model Y axis
-
+                inputTriangles[whichSet].alive = true;
                 // set up the vertex and normal arrays, define model center and axes
                 inputTriangles[whichSet].glVertices = []; // flat coord list for webgl
                 inputTriangles[whichSet].glNormals = []; // flat normal list for webgl
@@ -230,7 +230,11 @@ function loadModels() {
                     vec3.add(inputTriangles[whichSet].center,inputTriangles[whichSet].center,vtxToAdd); // add to ctr sum
                 } // end for vertices in set
                 vec3.scale(inputTriangles[whichSet].center,inputTriangles[whichSet].center,1/numVerts); // avg ctr sum
-
+                inputTriangles[whichSet].center = [
+                    (inputTriangles[whichSet].vertices[2][0] + inputTriangles[whichSet].vertices[3][0]) / 2,
+                    (inputTriangles[whichSet].vertices[2][1] + inputTriangles[whichSet].vertices[3][1]) / 2,
+                    (inputTriangles[whichSet].vertices[2][2] + inputTriangles[whichSet].vertices[3][2]) / 2,
+                ];
                 // send the vertex coords and normals to webGL
                 vertexBuffers[whichSet] = gl.createBuffer(); // init empty webgl set vertex coord buffer
                 gl.bindBuffer(gl.ARRAY_BUFFER,vertexBuffers[whichSet]); // activate that buffer
@@ -452,10 +456,9 @@ function setupShaders() {
 } // end setup shaders
 function drawend(context) {
     context.beginPath();
-
-    context.font = "40px Times New Roman";
+    context.font = "36px Times New Roman";
     context.fillStyle = 'red';
-    context.fillText("I Love You 小宝贝", 96, 256);
+    context.fillText("game", 96, 256);
 
     context.stroke();
 }
@@ -471,7 +474,7 @@ function handleclick(e) {
 }
 // render the loaded model
 function renderModels() {
-if(time == 5) drawend(context);
+//if(time == 5) drawend(context);
     // var hMatrix = mat4.create(); // handedness matrix
     var pMatrix = mat4.create(); // projection matrix
     var vMatrix = mat4.create(); // view matrix
@@ -494,7 +497,7 @@ if(time == 5) drawend(context);
     var currSet; // the tri set and its material properties
     for (var whichTriSet=0; whichTriSet<numTriangleSets; whichTriSet++) {
         currSet = inputTriangles[whichTriSet];
-
+        if(!currSet.alive) continue;
         mat4.multiply(pvmMatrix,pvMatrix,mMatrix); // project * view * model
         gl.uniformMatrix4fv(mMatrixULoc, false, mMatrix); // pass in the m matrix
         gl.uniformMatrix4fv(pvmMatrixULoc, false, pvmMatrix); // pass in the hpvm matrix
@@ -520,17 +523,21 @@ if(time == 5) drawend(context);
     // render each ellipsoid
     var ellipsoid, instanceTransform = mat4.create(); // the current ellipsoid and material
     var speed = 0.006;
-    var shootangle=1.5;
+    var shootangle= 1.5;
     var distance;
     for (var whichEllipsoid=0; whichEllipsoid<numEllipsoids; whichEllipsoid++) {
         ellipsoid = inputEllipsoids[whichEllipsoid];
-        var center1 = vec4.fromValues(ellipsoid.x, ellipsoid.y, ellipsoid.z, 1.0);
 
         if(whichEllipsoid < MISSLE_NUM) {
             mat4.translate(ellipsoid.mMatrix, ellipsoid.mMatrix, [-speed*Math.cos(shootangle), -speed*Math.sin(shootangle), 0]);
-            distance = (center1[0]-ellipsoid.center[0])*(center1[0]-ellipsoid.center[0]) + (center1[1]-ellipsoid.center[1])*(center1[1]-ellipsoid.center[1]);
-          if(whichEllipsoid == 1)  console.log(center1);
+            var center1 = vec4.fromValues(ellipsoid.x, ellipsoid.y, ellipsoid.z, 1.0);
+            mat4.multiply(center1, ellipsoid.mMatrix, center1 );
+            distance = center1[1]-inputTriangles[whichEllipsoid+1].center[1];
+            if(distance <= ellipsoid.a) inputTriangles[whichEllipsoid+1].alive = false;
         }
+
+      //  if(whichEllipsoid==2) inputTriangles[whichEllipsoid%3+1].alive = true;
+
         if(whichEllipsoid >= ANTI_NUM) {
           if(!ellipsoid.alive) continue;
           shootangle = ellipsoid.angle; // console.log("angle is " + shootangle);
