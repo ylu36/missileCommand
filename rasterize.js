@@ -270,6 +270,7 @@ function loadModels() {
                 var temp = vec3.create(); // an intermediate vec3
                 var minXYZ = vec3.create(), maxXYZ = vec3.create();  // min/max xyz from ellipsoid
                 numEllipsoids = inputEllipsoids.length; // remember how many ellipsoids
+                console.log(numEllipsoids);
                 for (var whichEllipsoid=0; whichEllipsoid<numEllipsoids; whichEllipsoid++) {
 
                     // set up various stats and transforms for this ellipsoid
@@ -316,7 +317,7 @@ function loadModels() {
         ellipsoid = inputEllipsoids[whichEllipsoid];
         inputEllipsoids[whichEllipsoid].mMatrix = mat4.create();
         inputEllipsoids[whichEllipsoid].center = [ellipsoid.x, ellipsoid.y, 0];
-        inputEllipsoids[whichEllipsoid].alive = false;
+        inputEllipsoids[whichEllipsoid].alive = (whichEllipsoid<=5);
     }
 } // end load models
 
@@ -472,6 +473,9 @@ function handleclick(e) {
     anti_index ++;time++;
     //console.log("angle is "+inputEllipsoids[anti_index].angle );
 }
+function getDistance(x, y) {
+    return Math.sqrt(x * x + y * y);
+}
 // render the loaded model
 function renderModels() {
 //if(time == 5) drawend(context);
@@ -527,21 +531,46 @@ function renderModels() {
     var distance;
     for (var whichEllipsoid=0; whichEllipsoid<numEllipsoids; whichEllipsoid++) {
         ellipsoid = inputEllipsoids[whichEllipsoid];
-
+        console.log(whichEllipsoid + " with mmatrix is " + ellipsoid.mMatrix);
+        var center1 = vec4.fromValues(ellipsoid.x, ellipsoid.y, ellipsoid.z, 1.0);
+        mat4.multiply(center1, ellipsoid.mMatrix, center1);
+        //destroy buildings
+        if(!ellipsoid.alive) continue;
         if(whichEllipsoid < MISSLE_NUM) {
             mat4.translate(ellipsoid.mMatrix, ellipsoid.mMatrix, [-speed*Math.cos(shootangle), -speed*Math.sin(shootangle), 0]);
-            var center1 = vec4.fromValues(ellipsoid.x, ellipsoid.y, ellipsoid.z, 1.0);
-            mat4.multiply(center1, ellipsoid.mMatrix, center1 );
-            distance = center1[1]-inputTriangles[whichEllipsoid+1].center[1];
-            if(distance <= ellipsoid.a) inputTriangles[whichEllipsoid+1].alive = false;
+            distance = center1[1]-inputTriangles[whichEllipsoid+1].center[1];//console.log("ellipsoid " + ellipsoid.mMatrix);
+            if(distance <= ellipsoid.a) {
+              inputTriangles[whichEllipsoid+1].alive = false;
+              ellipsoid.alive = false;
+            }
         }
-
-      //  if(whichEllipsoid==2) inputTriangles[whichEllipsoid%3+1].alive = true;
-
+        //anti-missiles destroy missiles
         if(whichEllipsoid >= ANTI_NUM) {
+          for(var i = 0; i < MISSLE_NUM; i++) {
+            if(!inputEllipsoids[i].alive) {console.log("here");continue;}
+            var missile = inputEllipsoids[i];
+            var missile_center = vec4.fromValues(missile.x, missile.y, missile.z, 1.0);
+            mat4.multiply(missile_center, missile.mMatrix, missile_center);
+            var distance = getDistance(center1[0]-missile_center[0], center1[1]-missile_center[1]);
+            if(distance <= missile.a + ellipsoid.a) {
+              ellipsoid.alive = false;
+              missile.alive = false;
+              console.log("aaaaa");
+              break;
+            }
+          }
           if(!ellipsoid.alive) continue;
-          shootangle = ellipsoid.angle; // console.log("angle is " + shootangle);
+          shootangle = ellipsoid.angle;   console.log(shootangle);
           mat4.translate(ellipsoid.mMatrix, ellipsoid.mMatrix, [speed*Math.cos(ellipsoid.angle), speed*Math.sin(ellipsoid.angle), 0]);
+
+        //  mat4.multiply(center2, ellipsoid.mMatrix, center2);
+        //  console.log("center is " + ellipsoid.mMatrix);
+        //   console.log("ellipsoid " + ellipsoid.mMatrix);
+        /*  distance = getDistance(center2[0]-inputEllipsoids[(whichEllipsoid-6)%4].x, center2[1]-inputEllipsoids[(whichEllipsoid-6)%4].y);
+      //    console.log(distance);
+          if(distance <= ellipsoid.a+inputEllipsoids[(whichEllipsoid-6)%4].a) {
+            inputEllipsoids[(whichEllipsoid-6)%4].alive = false;
+          }*/
         }
 
         pvmMatrix = mat4.multiply(pvmMatrix,pvMatrix,ellipsoid.mMatrix); // premultiply with pv matrix
