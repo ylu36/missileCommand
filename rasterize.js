@@ -12,6 +12,7 @@ var lightSpecular = vec3.fromValues(1,1,1); // default light specular emission
 var lightPosition = vec3.fromValues(2,4,-0.5); // default light position
 var rotateTheta = Math.PI/50; // how much to rotate models by with each key press
 var time = 0;
+var score = 0;
 var context;
 /* webgl and geometry data */
 var gl = null; // the all powerful gl object. It's all here folks!
@@ -35,14 +36,19 @@ var specularULoc; // where to put specular reflecivity for fragment shader
 var shininessULoc; // where to put specular exponent for fragment shader
 
 /* interaction variables */
+var explosion = new Audio('explosion.mp3');
+var launch = new Audio('launch.mp3');
 var Eye = vec3.clone(defaultEye); // eye position in world space
 var Center = vec3.clone(defaultCenter); // view direction in world space
 var Up = vec3.clone(defaultUp); // view up vector in world space
 var viewDelta = 0; // how much to displace view with each key press
-
-var MISSLE_NUM = 4;
+var bkgdImage = new Image();
+var MISSLE_NUM = 3;
+var ammo = 5;
 var ANTI_NUM = MISSLE_NUM + 2;
 var anti_index = ANTI_NUM;
+var cw, ch, iw, ih;
+var missile_remain = MISSLE_NUM;
 // ASSIGNMENT HELPER FUNCTIONS
 
 // get the JSON file from the passed URL
@@ -72,6 +78,21 @@ function getJSONFile(url,descr) {
     }
 } // end get input json file
 
+function drawScore(context) {
+
+    context.clearRect(0, 0, 800, 800);
+
+    imageContext.drawImage(bkgdImage, 0, 0, iw, ih, 0, 0, cw, ch);
+    context.beginPath();
+
+    context.font = "22px Times New Roman";
+    context.fillText("Your Score:", 0 , 20);
+    context.fillText("Score: " + score, 0, 50);
+    context.fillText("Missile remaining: " + missile_remain, 0, 80);
+    context.fillText("Ammo remaining: " + ammo, 0, 110);
+    context.stroke();
+}
+
 // set up the webGL environment
 function setupWebGL() {
 
@@ -79,15 +100,16 @@ function setupWebGL() {
     document.addEventListener("click", handleclick);
       // Get the image canvas, render an image in it
      var imageCanvas = document.getElementById("myImageCanvas"); // create a 2d canvas
-      var cw = imageCanvas.width, ch = imageCanvas.height;
+      cw = imageCanvas.width, ch = imageCanvas.height;
       imageContext = imageCanvas.getContext("2d");
       context = imageCanvas.getContext("2d");
-      var bkgdImage = new Image();
+
       bkgdImage.crossOrigin = "Anonymous";
       bkgdImage.src = "https://ncsucgclass.github.io/prog3/sky.jpg";
       bkgdImage.onload = function(){
-          var iw = bkgdImage.width, ih = bkgdImage.height;
+          iw = bkgdImage.width, ih = bkgdImage.height;
           imageContext.drawImage(bkgdImage,0,0,iw,ih,0,0,cw,ch);
+          drawScore(context);
      } // end onload callback
 
      // create a webgl canvas and set it up
@@ -317,7 +339,7 @@ function loadModels() {
         ellipsoid = inputEllipsoids[whichEllipsoid];
         inputEllipsoids[whichEllipsoid].mMatrix = mat4.create();
         inputEllipsoids[whichEllipsoid].center = [ellipsoid.x, ellipsoid.y, 0];
-        inputEllipsoids[whichEllipsoid].alive = (whichEllipsoid<=5);
+        inputEllipsoids[whichEllipsoid].alive = (whichEllipsoid<=MISSLE_NUM+1);
     }
 } // end load models
 
@@ -459,26 +481,25 @@ function drawend(context) {
     context.beginPath();
     context.font = "36px Times New Roman";
     context.fillStyle = 'red';
-    context.fillText("game", 96, 256);
-
+    context.fillText("Good Game", 96, 256);
     context.stroke();
 }
 function handleclick(e) {
     var x = -(e.pageX-256)/256;
     var y = -(e.pageY-256)/256;
-    if(anti_index == numEllipsoids) anti_index = ANTI_NUM;
     inputEllipsoids[anti_index].alive = true;
     inputEllipsoids[anti_index].destination = [x,y];
     inputEllipsoids[anti_index].angle = Math.atan2(y-inputEllipsoids[anti_index].y, x-inputEllipsoids[anti_index].x);
-    anti_index ++;time++;
-    //console.log("angle is "+inputEllipsoids[anti_index].angle );
+    anti_index ++;
+    ammo --;
+    drawScore(context);
+    launch.play();
 }
 function getDistance(x, y) {
     return Math.sqrt(x * x + y * y);
 }
 // render the loaded model
 function renderModels() {
-//if(time == 5) drawend(context);
     // var hMatrix = mat4.create(); // handedness matrix
     var pMatrix = mat4.create(); // projection matrix
     var vMatrix = mat4.create(); // view matrix
@@ -526,28 +547,31 @@ function renderModels() {
 
     // render each ellipsoid
     var ellipsoid, instanceTransform = mat4.create(); // the current ellipsoid and material
-    var speed = 0.006;
+    var speed = 0.004;
     var shootangle= 1.5;
     var distance;
     for (var whichEllipsoid=0; whichEllipsoid<numEllipsoids; whichEllipsoid++) {
         ellipsoid = inputEllipsoids[whichEllipsoid];
-        console.log(whichEllipsoid + " with mmatrix is " + ellipsoid.mMatrix);
         var center1 = vec4.fromValues(ellipsoid.x, ellipsoid.y, ellipsoid.z, 1.0);
         mat4.multiply(center1, ellipsoid.mMatrix, center1);
         //destroy buildings
         if(!ellipsoid.alive) continue;
         if(whichEllipsoid < MISSLE_NUM) {
             mat4.translate(ellipsoid.mMatrix, ellipsoid.mMatrix, [-speed*Math.cos(shootangle), -speed*Math.sin(shootangle), 0]);
-            distance = center1[1]-inputTriangles[whichEllipsoid+1].center[1];//console.log("ellipsoid " + ellipsoid.mMatrix);
-            if(distance <= ellipsoid.a) {
-              inputTriangles[whichEllipsoid+1].alive = false;
+            distance = center1[1]-inputTriangles[whichEllipsoid+2].center[1];
+            if(distance <= ellipsoid.a*2) {
+              inputTriangles[whichEllipsoid+2].alive = false;
+              console.log(whichTriSet);
+              explosion.play();
               ellipsoid.alive = false;
             }
         }
+
+        if(ammo == 0) drawend(context);
         //anti-missiles destroy missiles
         if(whichEllipsoid >= ANTI_NUM) {
           for(var i = 0; i < MISSLE_NUM; i++) {
-            if(!inputEllipsoids[i].alive) {console.log("here");continue;}
+            if(!inputEllipsoids[i].alive) continue;
             var missile = inputEllipsoids[i];
             var missile_center = vec4.fromValues(missile.x, missile.y, missile.z, 1.0);
             mat4.multiply(missile_center, missile.mMatrix, missile_center);
@@ -555,22 +579,16 @@ function renderModels() {
             if(distance <= missile.a + ellipsoid.a) {
               ellipsoid.alive = false;
               missile.alive = false;
-              console.log("aaaaa");
+              explosion.play();
+              score += 100;
+              missile_remain --;
+              drawScore(context);
               break;
             }
           }
           if(!ellipsoid.alive) continue;
-          shootangle = ellipsoid.angle;   console.log(shootangle);
-          mat4.translate(ellipsoid.mMatrix, ellipsoid.mMatrix, [speed*Math.cos(ellipsoid.angle), speed*Math.sin(ellipsoid.angle), 0]);
-
-        //  mat4.multiply(center2, ellipsoid.mMatrix, center2);
-        //  console.log("center is " + ellipsoid.mMatrix);
-        //   console.log("ellipsoid " + ellipsoid.mMatrix);
-        /*  distance = getDistance(center2[0]-inputEllipsoids[(whichEllipsoid-6)%4].x, center2[1]-inputEllipsoids[(whichEllipsoid-6)%4].y);
-      //    console.log(distance);
-          if(distance <= ellipsoid.a+inputEllipsoids[(whichEllipsoid-6)%4].a) {
-            inputEllipsoids[(whichEllipsoid-6)%4].alive = false;
-          }*/
+          shootangle = ellipsoid.angle;
+          mat4.translate(ellipsoid.mMatrix, ellipsoid.mMatrix, [3*speed*Math.cos(ellipsoid.angle), 3*speed*Math.sin(ellipsoid.angle), 0]);
         }
 
         pvmMatrix = mat4.multiply(pvmMatrix,pvMatrix,ellipsoid.mMatrix); // premultiply with pv matrix
