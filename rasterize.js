@@ -477,11 +477,14 @@ function setupShaders() {
         console.log(e);
     } // end catch
 } // end setup shaders
-function drawend(context) {
+function drawend(context, msg) {
     context.beginPath();
     context.font = "36px Times New Roman";
     context.fillStyle = 'red';
-    context.fillText("Good Game", 96, 256);
+    if(msg == "end")
+      context.fillText("Good Game", 96, 256);
+    if(msg == "fail")
+      context.fillText("Building Destroyed", 96, 256);
     context.stroke();
 }
 function handleclick(e) {
@@ -561,13 +564,14 @@ function renderModels() {
             distance = center1[1]-inputTriangles[whichEllipsoid+2].center[1];
             if(distance <= ellipsoid.a*2) {
               inputTriangles[whichEllipsoid+2].alive = false;
-              console.log(whichTriSet);
+              drawScore(context);
+              drawend(context, "fail");
               explosion.play();
               ellipsoid.alive = false;
             }
         }
 
-        if(ammo == 0) drawend(context);
+        if(ammo == 0) drawend(context, "end");
         //anti-missiles destroy missiles
         if(whichEllipsoid >= ANTI_NUM) {
           for(var i = 0; i < MISSLE_NUM; i++) {
